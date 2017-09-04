@@ -442,6 +442,7 @@ describe("Project Service Tests", () => {
 			testInjector.register("projectData", {
 				projectDir: "projectDir",
 				projectId: "projectId",
+				projectIdentifiers: { android: "projectId", ios: "projectId"},
 				initializeProjectData: (): void => undefined
 			});
 

@@ -176,6 +176,7 @@ describe('Platform Service Tests', () => {
 	beforeEach(() => {
 		testInjector = createTestInjector();
 		testInjector.register("fs", stubs.FileSystemStub);
+		testInjector.resolve("projectData").initializeProjectData();
 		platformService = testInjector.resolve("platformService");
 	});
 
@@ -385,6 +386,7 @@ describe('Platform Service Tests', () => {
 			testInjector = createTestInjector();
 			testInjector.register("fs", fsLib.FileSystem);
 			fs = testInjector.resolve("fs");
+			testInjector.resolve("projectData").initializeProjectData();
 		});
 
 		function prepareDirStructure() {

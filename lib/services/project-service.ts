@@ -81,7 +81,7 @@ export class ProjectService implements IProjectService {
 	public isValidNativeScriptProject(pathToProject?: string): boolean {
 		try {
 			this.$projectData.initializeProjectData(pathToProject);
-			return !!this.$projectData.projectDir && !!this.$projectData.projectId;
+			return !!this.$projectData.projectDir && !!(this.$projectData.projectIdentifiers.ios && this.$projectData.projectIdentifiers.android);
 		} catch (e) {
 			return false;
 		}

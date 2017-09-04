@@ -67,7 +67,7 @@ export class IOSDeviceLiveSyncService extends DeviceLiveSyncServiceBase implemen
 			return;
 		}
 
-		if (await this.setupSocketIfNeeded(projectData.projectId)) {
+		if (await this.setupSocketIfNeeded(projectData.projectIdentifiers.ios)) {
 			await this.liveEdit(scriptFiles);
 			await this.reloadPage(deviceAppData, otherFiles);
 		} else {
