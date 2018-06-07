@@ -53,7 +53,7 @@ export class IOSProjectService extends projectServiceBaseLib.PlatformProjectServ
 		private $plistParser: IPlistParser,
 		private $sysInfo: ISysInfo,
 		private $xCConfigService: XCConfigService) {
-			super($fs, $projectDataService);
+		super($fs, $projectDataService);
 	}
 
 	private _platformsDirCache: string = null;
@@ -1121,8 +1121,62 @@ We will now place an empty obsolete compatability white screen LauncScreen.xib f
 			const pluginPodFileContent = this.$fs.readText(pluginPodFilePath);
 			const pluginPodFilePreparedContent = this.buildPodfileContent(pluginPodFilePath, pluginPodFileContent);
 			let projectPodFileContent = this.$fs.exists(this.getProjectPodFilePath(projectData)) ? this.$fs.readText(this.getProjectPodFilePath(projectData)) : "";
+			const pluginPodfileHeader = this.getPluginPodfileHeader(pluginPodFilePath);
+			let shouldWriteToProjectPodfile = projectPodFileContent.indexOf(pluginPodfileHeader) === - 1; // Podfile from plugin does not exist in the project's Podfile
+			if (!shouldWriteToProjectPodfile) {
+				// In case we are here, the Podfile of the plugin is already part of the project's Podfile (inside <project dir>/platforms/ios/Podfile)
+				// However, we need to check if the version of the plugin's Podfile inside project's one is the same as the current plugin's Podfile from node_modules.
+				// We cannot compare the contents directly due to the modifications that CLI makes over the project's Podfile and particularly the post_install hook of the plugin's Podfiles.
+				const contentRegExp = new RegExp(`${pluginPodfileHeader}([\\s\\S]+?)${this.getPluginPodfileEnd()}`, "g");
+				const matchingGroups = contentRegExp.exec(projectPodFileContent);
+				if (matchingGroups && matchingGroups[1]) {
+					const startIndex = projectPodFileContent.indexOf(pluginPodfileHeader);
+					const endIndex = startIndex + pluginPodfileHeader.length + matchingGroups[1].length + this.getPluginPodfileEnd().length;
 
-			if (!~projectPodFileContent.indexOf(pluginPodFilePreparedContent)) {
+					const content = matchingGroups[1].trim();
+					const linesInProjectPodfile = content.split(os.EOL);
+					const cleanupAction = () => {
+						projectPodFileContent = projectPodFileContent.substring(0, startIndex) + projectPodFileContent.substring(endIndex);
+
+						const match = /(post_install\d+)/g.exec(content);
+						if (match && match[1]) {
+							projectPodFileContent = projectPodFileContent.replace(new RegExp(`.*${match[1]}.*${os.EOL}`, "g"), "");
+						}
+
+						shouldWriteToProjectPodfile = true;
+					};
+
+					_.each(pluginPodFileContent.split(os.EOL), (pluginPodFileLine: string, rowIndex: number) => {
+						const line = pluginPodFileLine.toString();
+						if (line && linesInProjectPodfile[rowIndex] && line !== linesInProjectPodfile[rowIndex]) {
+							if (line.indexOf("post_install") !== -1) {
+								if (linesInProjectPodfile[rowIndex].indexOf("post_install") === -1) {
+									cleanupAction();
+								}
+							} else {
+								cleanupAction();
+							}
+						}
+
+
+						// if (line && line.indexOf("post_install") !== -1) {
+						// 	const match = /(post_install\d+)/.exec(linesInProjectPodfile[rowIndex]);
+						// 	postInstallToRemove = match && match[1];
+						// 	if (linesInProjectPodfile[rowIndex].indexOf("post_install") === -1) {
+						// 		projectPodFileContent = projectPodFileContent.substring(0, startIndex) + projectPodFileContent.substring(endIndex);
+						// 		shouldWriteToProjectPodfile = true;
+						// 	}
+						// } else {
+						// 	if (line && linesInProjectPodfile[rowIndex] && line !== linesInProjectPodfile[rowIndex]) {
+						// 		projectPodFileContent = projectPodFileContent.substring(0, startIndex) + projectPodFileContent.substring(endIndex);
+						// 		shouldWriteToProjectPodfile = true;
+						// 	}
+						// }
+					});
+				}
+			}
+
+			if (shouldWriteToProjectPodfile) {
 				const podFileHeader = this.$cocoapodsService.getPodfileHeader(projectData.projectName),
 					podFileFooter = this.$cocoapodsService.getPodfileFooter();
 
@@ -1189,8 +1243,16 @@ We will now place an empty obsolete compatability white screen LauncScreen.xib f
 		}
 	}
 
+	private getPluginPodfileHeader(pluginPodFilePath: string): string {
+		return `# Begin Podfile - ${pluginPodFilePath}`;
+	}
+
+	private getPluginPodfileEnd(): string {
+		return `# End Podfile ${os.EOL}`;
+	}
+
 	private buildPodfileContent(pluginPodFilePath: string, pluginPodFileContent: string): string {
-		return `# Begin Podfile - ${pluginPodFilePath} ${os.EOL} ${pluginPodFileContent} ${os.EOL} # End Podfile ${os.EOL}`;
+		return `${this.getPluginPodfileHeader(pluginPodFilePath)} ${os.EOL} ${pluginPodFileContent} ${os.EOL} ${this.getPluginPodfileEnd()}`;
 	}
 
 	private generateModulemap(headersFolderPath: string, libraryName: string): void {
