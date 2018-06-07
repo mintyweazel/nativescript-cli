@@ -29,7 +29,7 @@ export class LiveSyncCommandHelper implements ILiveSyncCommandHelper {
 			skipInferPlatform: !platform
 		});
 
-		await this.$devicesService.detectCurrentlyAttachedDevices({ shouldReturnImmediateResult: false, platform: platform });
+		// await this.$devicesService.detectCurrentlyAttachedDevices({ shouldReturnImmediateResult: false, platform: platform });
 		const devices = this.$devicesService.getDeviceInstances()
 			.filter(d => !platform || d.deviceInfo.platform.toLowerCase() === platform.toLowerCase());
 
